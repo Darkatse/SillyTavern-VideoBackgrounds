@@ -11,6 +11,26 @@ import { delay } from '../../../utils.js';
         };
     };
 
+    const canHoverPreview = (() => {
+        try {
+            return globalThis.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches ?? false;
+        } catch {
+            return false;
+        }
+    })();
+
+    /** @param {HTMLMediaElement} media */
+    const safePlay = (media) => {
+        try {
+            const promise = media.play();
+            if (promise && typeof promise.catch === 'function') {
+                promise.catch(() => {});
+            }
+        } catch {
+            // Ignore play() failures (autoplay policy / rapid pause / source swap).
+        }
+    };
+
     let videoEl;
 
     /**@type {HTMLElement[]}*/([...document.querySelectorAll('#bg1')]).forEach(it=>it.style.backgroundPosition = 'center');
@@ -26,8 +46,8 @@ import { delay } from '../../../utils.js';
             url = bgUrl;
         }
         console.log('[STVBG]', url);
-        if (url.match(/^.+\.[a-z0-z]+\.[a-z0-9]+$/i)) {
-            const vurl = url.replace(/^(.+\.[a-z0-z]+)\.[a-z0-9]+$/i, '$1');
+        if (url.match(/^.+\.[a-z0-9]+\.[a-z0-9]+$/i)) {
+            const vurl = url.replace(/^(.+\.[a-z0-9]+)\.[a-z0-9]+$/i, '$1');
             console.log('[STVBG]', vurl);
             const resp = await fetch(vurl, {
                 method: 'HEAD',
@@ -38,6 +58,9 @@ import { delay } from '../../../utils.js';
                     v.loop = true;
                     v.autoplay = true;
                     v.muted = true;
+                    v.playsInline = true;
+                    v.setAttribute('playsinline', '');
+                    v.setAttribute('webkit-playsinline', '');
                     v.style.position = 'absolute';
                     v.style.height = '100%';
                     v.style.width = '100%';
@@ -73,11 +96,15 @@ import { delay } from '../../../utils.js';
 
     const replaceThumbs = async(muts = [])=>{
         rtp = new Promise(async(resolve)=>{
+            if (!canHoverPreview) {
+                resolve();
+                return;
+            }
             for (const bg of /**@type {HTMLElement[]}*/([...document.querySelectorAll('#bg_menu_content .bg_example[bgfile]:not(.stvbg)')])) {
                 bg.classList.add('stvbg');
                 const url = bg.getAttribute('bgfile');
-                if (url.match(/^.+\.[a-z0-z]+\.[a-z0-9]+$/i)) {
-                    const vurl = `/backgrounds/${url.replace(/^(.+\.[a-z0-z]+)\.[a-z0-9]+$/i, '$1')}`;
+                if (url.match(/^.+\.[a-z0-9]+\.[a-z0-9]+$/i)) {
+                    const vurl = `/backgrounds/${url.replace(/^(.+\.[a-z0-9]+)\.[a-z0-9]+$/i, '$1')}`;
                     console.log('[STVBG]', vurl);
                     const resp = await fetch(vurl, {
                         method: 'HEAD',
@@ -88,6 +115,9 @@ import { delay } from '../../../utils.js';
                             v.loop = true;
                             // v.autoplay = true;
                             v.muted = true;
+                            v.playsInline = true;
+                            v.setAttribute('playsinline', '');
+                            v.setAttribute('webkit-playsinline', '');
                             v.style.position = 'absolute';
                             v.style.height = '100%';
                             v.style.width = '100%';
@@ -97,8 +127,8 @@ import { delay } from '../../../utils.js';
                         }
                         /**@type {HTMLElement}*/(bg.querySelector('.BGSampleTitle')).style.zIndex = '1';
                         bg.style.background = 'none';
-                        bg.addEventListener('pointerover', ()=>v.play());
-                        bg.addEventListener('pointerout', ()=>v.pause());
+                        bg.addEventListener('mouseenter', () => safePlay(v));
+                        bg.addEventListener('mouseleave', () => v.pause());
                         bg.append(v);
                     }
                 }
