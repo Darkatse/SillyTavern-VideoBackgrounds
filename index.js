@@ -96,10 +96,6 @@ import { delay } from '../../../utils.js';
 
     const replaceThumbs = async(muts = [])=>{
         rtp = new Promise(async(resolve)=>{
-            if (!canHoverPreview) {
-                resolve();
-                return;
-            }
             for (const bg of /**@type {HTMLElement[]}*/([...document.querySelectorAll('#bg_menu_content .bg_example[bgfile]:not(.stvbg)')])) {
                 bg.classList.add('stvbg');
                 const url = bg.getAttribute('bgfile');
@@ -138,14 +134,20 @@ import { delay } from '../../../utils.js';
     };
     let rtq = 0;
     let rtp = Promise.resolve();
-    replaceThumbs();
-    const queueReplaceThumbs = async()=>{
-        rtq++;
-        await rtp;
-        if (--rtq == 0) replaceThumbs();
-    };
-    const moThumbs = new MutationObserver(debounce(queueReplaceThumbs));
-    moThumbs.observe(document.querySelector('#bg_menu_content'), { childList:true, subtree:true });
+    if (canHoverPreview) {
+        replaceThumbs();
+        const queueReplaceThumbs = async()=>{
+            rtq++;
+            await rtp;
+            if (--rtq == 0) replaceThumbs();
+        };
+        const bgMenu = document.querySelector('#bg_menu_content');
+        if (!bgMenu) {
+            throw new Error('[STVBG] Expected #bg_menu_content to exist for hover previews.');
+        }
+        const moThumbs = new MutationObserver(debounce(queueReplaceThumbs));
+        moThumbs.observe(bgMenu, { childList:true, subtree:true });
+    }
 })();
 
 $(document).ready(function () {
